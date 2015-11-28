@@ -57,6 +57,10 @@ module Librarian
       def use_v1_api
         config_db['use-v1-api']
       end
+
+      def use_forge
+        config_db['use-forge'].to_s == 'false' ? false : true
+      end
     end
   end
 end

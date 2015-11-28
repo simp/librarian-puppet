@@ -13,13 +13,23 @@ module Librarian
 
           name, version = manifest.name, manifest.version
           found_path = found_path(name)
-          raise Error, "Path for #{name} doesn't contain a puppet module" if found_path.nil?
 
-          unless name.include? '/' or name.include? '-'
-            warn { "Invalid module name '#{name}', you should qualify it with 'ORGANIZATION-#{name}' for resolution to work correctly" }
+          # We only care about this if we're fetching from a Forge
+          if found_path || self.is_a?(Librarian::Puppet::Source::Forge)
+            raise Error, "Path for #{name} doesn't contain a puppet module" if found_path.nil?
+
+            unless name.include? '/' or name.include? '-'
+              warn { "Invalid module name '#{name}', you should qualify it with 'ORGANIZATION-#{name}' for resolution to work correctly" }
+            end
+
+            install_path = environment.install_path.join(module_name(name))
+          elsif !repository_cached
+            raise Error, "Could not find cached version of #{name} for installation"
+          else
+            found_path = repository_cache_path
+            install_path = environment.project_path + path.to_s
           end
 
-          install_path = environment.install_path.join(module_name(name))
           if install_path.exist? && rsync? != true
             debug { "Deleting #{relative_path_to(install_path)}" }
             install_path.rmtree
@@ -43,9 +53,13 @@ module Librarian
           end
 
           parsed_metadata['dependencies'].each do |d|
-            gem_requirement = Librarian::Dependency::Requirement.new(d['version_requirement']).to_gem_requirement
-            new_dependency = Dependency.new(d['name'], gem_requirement, forge_source)
-            dependencies << new_dependency
+            if environment.use_forge
+              gem_requirement = Librarian::Dependency::Requirement.new(d['version_requirement']).to_gem_requirement
+              new_dependency = Dependency.new(d['name'], gem_requirement, forge_source)
+              dependencies << new_dependency
+            end
+
+            dependencies
           end
 
           dependencies
