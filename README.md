@@ -1,6 +1,7 @@
-# Librarian-puppet
+# Librarian-puppet-pr328
 
-[![Build Status](https://travis-ci.org/rodjek/librarian-puppet.png?branch=master)](https://travis-ci.org/rodjek/librarian-puppet)
+# NOTE: This is a temporary gem.
+This gem is a workaround until rodjek/librarian-puppet#325 (PR 328) is merged.
 
 ## Introduction
 
