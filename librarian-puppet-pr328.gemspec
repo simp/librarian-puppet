@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
     'README.md',
   ] + Dir['{bin,lib}/**/*']
 
-  s.executables = ['librarian-puppet']
+  s.executables = ['librarian-puppet-pr328']
 
   s.add_dependency "librarianp", ">=0.6.3"
   s.add_dependency "rsync"
