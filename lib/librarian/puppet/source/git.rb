@@ -6,6 +6,7 @@ module Librarian
     class Git
       class Repository
         def hash_from(remote, reference)
+
           branch_names = remote_branch_names[remote]
           if branch_names.include?(reference)
             reference = "#{remote}/#{reference}"
@@ -13,6 +14,57 @@ module Librarian
 
           command = %W(rev-parse #{reference}^{commit} --quiet)
           run!(command, :chdir => true).strip
+        end
+
+        # Return true if the repository has local modifications, false otherwise.
+        def dirty?
+          # Ignore anything that's not a git repository
+          # This is relevant for testing scenarios
+          return false unless self.git?
+
+          status = false
+          _path = relative_path_to(path).to_s
+          begin
+            Librarian::Posix.run!(%W{git update-index -q --ignore-submodules --refresh}, :chdir => _path)
+          rescue Librarian::Posix::CommandFailure => e
+            status = "Could not update git index for '#{path}'"
+          end
+
+          unless status
+            begin
+              Librarian::Posix.run!(%W{git diff-files --quiet --ignore-submodules --}, :chdir => _path)
+            rescue Librarian::Posix::CommandFailure => e
+              status = "'#{_path}' has unstaged changes"
+            end
+          end
+
+          unless status
+            begin
+              Librarian::Posix.run!(%W{git diff-index --cached --quiet HEAD --ignore-submodules --}, :chdir => _path)
+            rescue Librarian::Posix::CommandFailure => e
+              status = "'#{_path}' has uncommitted changes"
+            end
+          end
+
+          unless status
+            begin
+              untracked_files = Librarian::Posix.run!(%W{git ls-files -o -d --exclude-standard}, :chdir => _path)
+
+              unless untracked_files.empty?
+                untracked_files.strip!
+
+                if untracked_files.lines.count > 0
+                  status = "'#{_path}' has untracked files"
+                end
+              end
+
+            rescue Librarian::Posix::CommandFailure => e
+              # We should never get here
+              raise Error, "Failure running 'git ls-files -o -d --exclude-standard' at '#{_path}'"
+            end
+          end
+
+          status
         end
       end
     end

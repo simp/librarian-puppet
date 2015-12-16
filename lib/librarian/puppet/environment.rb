@@ -61,6 +61,14 @@ module Librarian
       def use_forge
         config_db['use-forge'].to_s == 'false' ? false : true
       end
+
+      def git_destructive
+        config_db['git-destructive'].to_s == 'false' ? false : true
+      end
+
+      def verbose?
+        config_db['verbose'].to_s == 'false' ? false : true
+      end
     end
   end
 end

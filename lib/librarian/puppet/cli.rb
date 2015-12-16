@@ -48,6 +48,7 @@ module Librarian
       option "local", :type => :boolean, :default => false
       option "use-v1-api", :type => :boolean, :default => true
       option "use-forge", :type => :boolean
+      option "git-destructive", :type => :boolean
       def install
 
         ensure!
@@ -66,6 +67,9 @@ module Librarian
         environment.config_db.local['use-v1-api'] = options['use-v1-api'] ? '1' : nil
         unless options["use-forge"].nil?
           environment.config_db.local['use-forge'] = options['use-forge'].to_s
+        end
+        unless options["git-destructive"].nil?
+          environment.config_db.local['git-destructive'] = options['git-destructive'].to_s
         end
         environment.config_db.local['mode'] = options['local'] ? 'local' : nil
 
@@ -89,6 +93,7 @@ module Librarian
       option "path", :type => :string
       option "destructive", :type => :boolean, :default => false
       option "use-forge", :type => :boolean
+      option "git-destructive", :type => :boolean
       def package
         environment.vendor!
         install

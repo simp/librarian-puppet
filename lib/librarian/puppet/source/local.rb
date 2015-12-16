@@ -9,6 +9,10 @@ module Librarian
         def install!(manifest)
           manifest.source == self or raise ArgumentError
 
+          if environment.verbose?
+            info { "Processing #{manifest.name}" }
+          end
+
           debug { "Installing #{manifest}" }
 
           name, version = manifest.name, manifest.version
@@ -30,12 +34,71 @@ module Librarian
             install_path = environment.project_path + path.to_s
           end
 
-          if install_path.exist? && rsync? != true
-            debug { "Deleting #{relative_path_to(install_path)}" }
-            install_path.rmtree
-          end
+          install_repo = Git::Repository.new(environment,install_path)
 
-          install_perform_step_copy!(found_path, install_path)
+          if install_repo.git?
+            _install_path = relative_path_to(install_path)
+
+            if environment.git_destructive
+              debug { "Performing git hard reset of '#{_install_path}'" }
+
+              install_repo.reset_hard!
+              install_repo.clean!
+            end
+
+            if install_repo.dirty?
+                warn { "#{install_repo.dirty?}, skipping..." }
+            else
+              # Try to do nicer git operations when possible
+              _remote_repo = 'librarian_origin'
+
+              begin
+                Librarian::Posix.run!(%W{git remote add #{_remote_repo} #{repository_cache_path}}, :chdir => _install_path)
+              rescue Librarian::Posix::CommandFailure => e
+                unless e.to_s =~ /already exists/
+                  raise Error, "Could not update git repository at #{_install_path}"
+                end
+              end
+
+              install_repo.fetch!(_remote_repo)
+
+              if environment.verbose?
+                warn "Checking out #{ref} in #{_install_path}"
+              end
+              install_repo.checkout!(ref)
+
+              begin
+                _target_ref = ref
+
+                # Handle branches vs absolute refs
+                if repository.remote_branch_names[repository.default_remote].include?(_target_ref)
+                  _target_ref = "#{repository.default_remote}/#{_target_ref}"
+                end
+
+                ff_output = Librarian::Posix.run!(%W{git pull --ff-only #{_remote_repo} #{_target_ref}}, :chdir => _install_path)
+
+                if ff_output =~ /Updating\s+.*\.\.(.*)\s*$/
+                  warn { "Updated '#{_install_path}' to #{$1}" }
+                end
+              rescue Librarian::Posix::CommandFailure => e
+                warn { "Fast forward of git repo at '#{_install_path}' failed...skipping" }
+              end
+
+              begin
+                Librarian::Posix.run!(%W{git remote rm #{_remote_repo}}, :chdir => _install_path)
+              rescue Librarian::Posix::CommandFailure => e
+                # We don't really care if this fails.
+                debug { "Removal of the '#{_remote_repo}' git remote failed" }
+              end
+            end
+          else
+            if install_path.exist? && rsync? != true
+              debug { "Deleting #{relative_path_to(install_path)}" }
+              install_path.rmtree
+            end
+
+            install_perform_step_copy!(found_path, install_path)
+          end
         end
 
         def fetch_version(name, extra)
